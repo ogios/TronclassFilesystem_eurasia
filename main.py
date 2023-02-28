@@ -207,6 +207,16 @@ def uplaodFile(filename, parentid):
         raise Exception(res.text)
 
 
+def getSize(bytesnum):
+    size = int(bytesnum)
+    for i in range(len(SIZE)):
+        if size > 1024:
+            size /= 1024
+        else:
+            break
+    size = str(round(size, 2)) + SIZE[i]
+    return size
+
 class FS:
     def __init__(self):
         self.root = Node(id=0, name="root", is_dir=True, filesize=0, children=dict(), parent=None)
@@ -234,13 +244,14 @@ class FS:
             if node.is_dir:
                 string += f"{i}. [D]{node.name} \n"
             else:
-                size = int(node.filesize)
-                for i in range(len(SIZE)):
-                    if size > 1024:
-                        size /= 1024
-                    else:
-                        break
-                size = str(round(size, 2)) + SIZE[i]
+                size = getSize(int(node.filesize))
+                # size = int(node.filesize)
+                # for i in range(len(SIZE)):
+                #     if size > 1024:
+                #         size /= 1024
+                #     else:
+                #         break
+                # size = str(round(size, 2)) + SIZE[i]
                 string += f"{i}. {node.name} - [{size}]\n"
         return string
 
@@ -278,7 +289,7 @@ class FS:
         if not self.now.inited:
             self.now.init()
 
-    def upload(self, filename):
+    def _upload(self, filename):
         """
         上传文件
         """
@@ -303,6 +314,20 @@ class FS:
 
         except Exception as e:
             traceback.print_exc()
+
+    def upload(self, filename):
+        size = os.path.getsize(filename)
+        if (size / (1024**3)) > 1:
+            size = getSize(size)
+            print(f"文件大小为 {size} 超过1GB, 将会进行500MB分卷压缩")
+            _id = self.mkdir(name=os.path.basename(filename))
+            self.reload()
+            self.cdid(_id=_id)
+            filenames = compress(filename, "500M")
+            for i in filenames:
+                self._upload(i)
+        else:
+            self._upload(filename)
 
     def delete(self, num):
         fileid = self.getIdByIndex(num)
@@ -329,7 +354,10 @@ class FS:
         js = json.loads(res.text)
         if js.__contains__("error"):
             print(js)
-        self.reload()
+        else:
+            self.reload()
+            return js["id"]
+
 
     def move(self, _ids: list, parentid: int):
         url = "http://lms.eurasia.edu/api/uploads/move"
