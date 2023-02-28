@@ -27,9 +27,10 @@
 
 
 ## 效果:
-![Snipaste_2023-02-25_17-30-36](https://user-images.githubusercontent.com/96933655/221349911-7ead90de-8206-456f-86ec-a83ff35ccf3b.jpg)
+<img src="https://user-images.githubusercontent.com/96933655/221785315-12ad9efa-f31c-4bb9-a74e-52a857897b9a.png" width=60%>
 
-![image](https://user-images.githubusercontent.com/96933655/221360515-a3e2b2d9-0884-4764-954a-648a76189830.png)
+<img src="https://user-images.githubusercontent.com/96933655/221785934-041c8260-45f8-43cd-82d6-3c0f496cce92.png" width=60%>
+
 
 
 
