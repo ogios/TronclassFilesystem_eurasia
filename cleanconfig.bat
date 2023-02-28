@@ -1,0 +1,1 @@
+del %~dp0utils\conf.json
