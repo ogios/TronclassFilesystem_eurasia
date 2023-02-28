@@ -8,7 +8,9 @@ from threading import Thread
 
 import requests
 import base64
-from requests_toolbelt.multipart.encoder import MultipartEncoder
+
+import win32ui
+from requests_toolbelt.multipart.encoder import MultipartEncoder, MultipartEncoderMonitor
 
 from utils.Login import SSO, Login
 from utils.tempzip import compress
@@ -18,7 +20,7 @@ PATH = os.path.dirname(__file__) + "/downloads/"
 PATH_CONF = os.path.dirname(__file__) + "/utils/conf.json"
 if not os.path.exists(PATH):
     os.mkdir(PATH)
-
+SIZE = ["B", "KB", "MB", "GB"]
 
 class Node:
     def __init__(self, id: int, name: str, is_dir: bool, filesize: int, children: dict, parent):
@@ -57,7 +59,7 @@ class Node:
                 # print(i.name, end=" | ")
                 i.load()
 
-    def download(self):
+    def download(self, link:bool=False):
         if self.is_dir:
             return "文件夹无法下载"
         else:
@@ -66,13 +68,18 @@ class Node:
                 res = sso.get(url, allow_redirects=False)
                 location = res.headers.get("Location", None)
                 if location:
+                    if link:
+                        return location
                     res = sso.get(location, stream=True)
+                    totalsize = int(res.headers["Content-Length"])
                     with open(PATH + self.name, "wb") as f:
                         for cont in res.iter_content(10240):
+                            progress = round(((f.tell()+len(cont)) / totalsize) * 100, 2)
+                            print(f"\r Downloading...  {progress}%", end="", flush=True)
                             f.write(cont)
-                    return f"{self.name} - 下载完成。"
+                    return f" 下载完成。"
             except Exception as e:
-                return f"{self.name} - 下载失败！"
+                return f" 下载失败！"
 
 
 def addNode(uploads: list, nodes: dict, parent: Node):
@@ -184,8 +191,13 @@ def uplaodFile(filename, parentid):
         },
         boundary="-----------------------------" + str(random.randint(1e28, 1e29 - 1))
     )
-    headers["Content-Type"] = multipart.content_type
-    res = requests.put(upload_url, data=multipart, headers=headers)
+    def monitor(m):
+        progress = round((m.bytes_read / m.len) * 100, 2)
+        print(f"\r Uploading...  {progress}%({m.bytes_read}/{m.len})", end="", flush=True)
+
+    multipartMonitor = MultipartEncoderMonitor(multipart, monitor)
+    headers["Content-Type"] = multipartMonitor.content_type
+    res = requests.put(upload_url, data=multipartMonitor, headers=headers)
     js: dict = json.loads(res.text)
     if js.__contains__("file_key"):
         return 1
@@ -222,7 +234,14 @@ class FS:
             if node.is_dir:
                 string += f"{i}. [D]{node.name} \n"
             else:
-                string += f"{i}. {node.name} \n"
+                size = int(node.filesize)
+                for i in range(len(SIZE)):
+                    if size > 1024:
+                        size /= 1024
+                    else:
+                        break
+                size = str(round(size, 2)) + SIZE[i]
+                string += f"{i}. {node.name} - [{size}]\n"
         return string
 
     def cd(self, name):
@@ -415,19 +434,22 @@ class cmdSimulation:
         except:
             traceback.print_exc()
 
-    def get(self, cmd):
+    def get(self, cmd, link=False):
         try:
             getid = self.fs.getIdByIndex(int(cmd[-1]))
             print(f"正在下载 - {self.fs.now.children[getid].name}")
             get_start = time.time()
-            print(self.fs.now.children[getid].download())
+            print(self.fs.now.children[getid].download(link=link))
             print(f"下载内容耗时: {time.time() - get_start}")
         except:
             traceback.print_exc()
 
-    def put(self, cmd):
+    def put(self):
         try:
-            filename = " ".join(cmd[1:])
+            fileDialog = win32ui.CreateFileDialog(True)
+            fileDialog.SetOFNInitialDir(__file__)
+            fileDialog.DoModal()
+            filename = fileDialog.GetPathName()
             print(filename)
             upload_start = time.time()
             print(self.fs.upload(filename))
@@ -479,9 +501,11 @@ class cmdSimulation:
                 case "cdid":
                     self.cdid(cmd)
                 case "get":
-                    self.get(cmd)
+                    self.get(cmd, link=False)
+                case "getlink":
+                    self.get(cmd, link=True)
                 case "put":
-                    self.put(cmd)
+                    self.put()
                 case "reload":
                     self.reload()
                 case "rm":

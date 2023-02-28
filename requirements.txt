@@ -2,3 +2,4 @@ requests
 pycryptodome
 requests_toolbelt
 pyquery
+pypiwin32
