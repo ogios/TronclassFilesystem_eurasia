@@ -521,6 +521,8 @@ class cmdSimulation:
     def mainloop(self):
         while 1:
             cmd = input(">>>").split()
+            if not cmd:
+                continue
             match cmd[0]:
                 case "ls":
                     self.ls()
